@@ -1,0 +1,31 @@
+# UniGuild Backend Implementation Status (Firebase)
+
+The backend is partially implemented using Firebase (Auth & Firestore). The following features are currently operational via the frontend's integration with Firestore:
+
+## 1. Authentication (Firebase Auth)
+- **Email/Password Login**: Standard authentication for all user roles.
+- **Google Social Login**: Integrated for students to quickly sign up.
+- **Role-Based Access Control (RBAC)**: Handled via the `users` collection in Firestore.
+
+## 2. Core Collections (Firestore)
+- **`users`**: Stores user profiles (UID, Name, Email, Role, College, branch, skills, etc.). Verified roles: `student`, `superadmin`, `volunteer`, `eventcoordinator`, `headcoordinator`.
+- **`institutions`**: Stores college/university data (Name, Location, Logo, Type). Used for targeting events and jobs.
+- **`events`**: Stores event details, categories, dates, and slots. Real-time sync across all dashboards.
+- **`jobs`**: Stores job listings, company details, stipend, and target audience filters.
+- **`registrations`**: Tracks student event registrations, attendance status (`attended: boolean`), and certificate issuance status.
+- **`notifications`**: User-specific alerts for event status changes or applications.
+- **`announcements`**: Global announcements from Super Admins visible to all users.
+- **`audit_logs`**: Tracks administrative actions (creation/deletion/updates) with timestamps and user details.
+- **`messages` & `chat_messages`**: Real-time team communication system for coordinators and volunteers.
+
+## 3. Real-time Features
+- All dashboards utilize `onSnapshot` for real-time updates of:
+  - Event lists and registration counts.
+  - Job postings.
+  - Profile data.
+  - Admin activity logs.
+
+## 4. Business Logic (Client-Side)
+- **Attendance Scanning**: QR code verification is handled by comparing registration IDs in Firestore.
+- **Data Export**: CSV generation for students, coordinators, and college reports is performed in the browser.
+- **Bulk Upload**: CSV parsing for institution creation is performed client-side and batch-uploaded to Firestore.

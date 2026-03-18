@@ -1,0 +1,119 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile information for all roles.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["student", "volunteer", "coordinator", "head_coordinator", "evaluator", "super_admin"] },
+        "college": { "type": "string" },
+        "avatar": { "type": "string" },
+        "resumeUrl": { "type": "string", "description": "URL to the uploaded resume/CV" },
+        "projects": { "type": "array", "items": { "type": "object" } },
+        "workExperience": { "type": "array", "items": { "type": "object" } },
+        "skills": { "type": "array", "items": { "type": "string" } },
+        "institutionId": { "type": "string" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "Event": {
+      "title": "Event",
+      "description": "Event details and assignments.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "location": { "type": "string" },
+        "coordinatorId": { "type": "string" },
+        "headCoordinatorId": { "type": "string" },
+        "volunteerIds": { "type": "array", "items": { "type": "string" } },
+        "evaluatorIds": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["upcoming", "ongoing", "completed"] },
+        "certificateTemplateUrl": { "type": "string" },
+        "institutionId": { "type": "string" }
+      },
+      "required": ["title", "date", "status"]
+    },
+    "Registration": {
+      "title": "Event Registration",
+      "description": "Student registration for an event.",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "eventId": { "type": "string" },
+        "status": { "type": "string", "enum": ["registered", "attended", "completed"] },
+        "attendance": { "type": "boolean" },
+        "certificateIssued": { "type": "boolean" },
+        "certificateUrl": { "type": "string" },
+        "registeredAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["studentId", "eventId", "status"]
+    },
+    "Task": {
+      "title": "Volunteer Task",
+      "description": "Task assigned to a volunteer for an event.",
+      "type": "object",
+      "properties": {
+        "volunteerId": { "type": "string" },
+        "eventId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "completed"] },
+        "assignedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["volunteerId", "eventId", "title", "status"]
+    },
+    "Job": {
+      "title": "Job Posting",
+      "description": "Job or internship opportunity.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "company": { "type": "string" },
+        "description": { "type": "string" },
+        "requirements": { "type": "array", "items": { "type": "string" } },
+        "institutionId": { "type": "string" },
+        "postedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "company", "institutionId"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User notification.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["event", "job", "certificate", "task"] },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "message", "read", "createdAt"]
+    },
+    "Institution": {
+      "title": "Institution",
+      "description": "College or University.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "location": { "type": "string" },
+        "studentCount": { "type": "number" },
+        "coordinatorCount": { "type": "number" }
+      },
+      "required": ["name"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "User", "description": "User profiles" },
+    "/events/{eventId}": { "schema": "Event", "description": "Events" },
+    "/registrations/{regId}": { "schema": "Registration", "description": "Event registrations" },
+    "/tasks/{taskId}": { "schema": "Task", "description": "Volunteer tasks" },
+    "/jobs/{jobId}": { "schema": "Job", "description": "Job postings" },
+    "/notifications/{notifId}": { "schema": "Notification", "description": "Notifications" },
+    "/institutions/{instId}": { "schema": "Institution", "description": "Institutions" }
+  }
+}

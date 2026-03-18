@@ -1,0 +1,29 @@
+# UniGuild Recommended Backend Implementation (Future Scope)
+
+To achieve a fully enterprise-grade, secure, and robust backend, the following architectural components should be implemented:
+
+## 1. Firebase Cloud Functions (Server-Side Logic)
+- **Certificate Generation**: Instead of generating certificates on the client, use a Cloud Function that triggers on `registration.attended == true` and generates a secure PDF using a library like `PDFKit`.
+- **Automated Email Notifications**: Use the `trigger-email` Firebase extension or custom Cloud Functions (triggered by new records in `notifications`) to send real-time confirmation and approval emails to students and admins.
+- **Scheduled Clean-ups**: Cloud Function (Pub/Sub trigger) to automatically archive past events and past job listings every midnight.
+- **QR Attendance Verification**: Move the verification logic from the client to a HTTPS Callable Cloud Function to ensure that the token (Registration ID) is signed and only valid for the specific event time.
+
+## 2. Firebase Storage (Media & Document Management)
+- **Resume Hosting**: Students currently provide a `resumeUrl` (likely external). Implement file uploads via `Firebase Storage` so resumes are stored securely and can be restricted to authorized evaluators/admins.
+- **Institution Assets**: Colleges should have their logos uploaded to Firebase Storage with proper cross-origin policies.
+- **Profile Pictures**: Users should be able to upload real profile pictures instead of using Picsum placeholders.
+
+## 3. Database Optimizations & Rules
+- **Firestore Bundles**: Use Firestore Bundles to pre-cache the static `institutions` and `colleges` lists to decrease initial load time and reduce database reads.
+- **Advanced Security Rules**: 
+  - Restrict `audit_logs` to `role == 'superadmin'` only.
+  - Ensure students can only read and write their OWN profiles in the `users` collection.
+  - Prevent event coordinators from modifying events they did not create.
+
+## 4. Search & Analytics Integration
+- **Algolia / Meilisearch Sync**: For enterprise-level searching through thousands of jobs and events, sync Firestore data with a search engine like Algolia via Cloud Functions.
+- **Admin Dashboard Persistence**: Move the metrics calculation (e.g., student counts per college) into a separate `metrics` collection that updates via Firestore Triggers, avoiding high-cost global collection counts on every dashboard load.
+
+## 5. Environment & Auth Setup
+- **Demo Identity Provider**: If demo login is required, create permanent demo accounts in Firebase Auth (`student@uniguild.edu`, `admin@uniguild.edu`, etc.) with a standard password (e.g., `UniGuildDemo123!`).
+- **Production CI/CD**: Set up a Firebase Hosting environment with automated deployments from GitHub so all real-time changes are synchronized across staging and production.

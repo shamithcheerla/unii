@@ -1,0 +1,272 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (UID)
+    // Fields:
+    //   - uid: string (required)
+    //   - name: string (required)
+    //   - email: string (required, format: email)
+    //   - role: string (required, enum: ["student", "volunteer", "coordinator", "head_coordinator", "evaluator", "super_admin"])
+    //   - college: string
+    //   - avatar: string
+    //   - resumeUrl: string
+    //   - projects: list
+    //   - workExperience: list
+    //   - skills: list
+    //   - institutionId: string
+    //
+    // Collection: events
+    // Document ID: eventId
+    // Fields:
+    //   - title: string (required)
+    //   - description: string
+    //   - date: string (required, format: date-time)
+    //   - location: string
+    //   - coordinatorId: string
+    //   - headCoordinatorId: string
+    //   - volunteerIds: list
+    //   - evaluatorIds: list
+    //   - status: string (required, enum: ["upcoming", "ongoing", "completed"])
+    //   - certificateTemplateUrl: string
+    //   - institutionId: string
+    //
+    // Collection: registrations
+    // Document ID: regId
+    // Fields:
+    //   - studentId: string (required)
+    //   - eventId: string (required)
+    //   - status: string (required, enum: ["registered", "attended", "completed"])
+    //   - attendance: bool
+    //   - certificateIssued: bool
+    //   - certificateUrl: string
+    //   - registeredAt: string (required, format: date-time)
+    //
+    // Collection: tasks
+    // Document ID: taskId
+    // Fields:
+    //   - volunteerId: string (required)
+    //   - eventId: string (required)
+    //   - title: string (required)
+    //   - description: string
+    //   - status: string (required, enum: ["pending", "completed"])
+    //   - assignedAt: string (required, format: date-time)
+    //
+    // Collection: jobs
+    // Document ID: jobId
+    // Fields:
+    //   - title: string (required)
+    //   - company: string (required)
+    //   - description: string
+    //   - requirements: list
+    //   - institutionId: string (required)
+    //   - postedAt: string (required, format: date-time)
+    //
+    // Collection: notifications
+    // Document ID: notifId
+    // Fields:
+    //   - userId: string (required)
+    //   - message: string (required)
+    //   - type: string (required, enum: ["event", "job", "certificate", "task"])
+    //   - read: bool (required)
+    //   - createdAt: string (required, format: date-time)
+    //
+    // Collection: institutions
+    // Document ID: instId
+    // Fields:
+    //   - name: string (required)
+    //   - location: string
+    //   - studentCount: number
+    //   - coordinatorCount: number
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+        (request.auth.token.email == "shamith.cheerla@sasi.ac.in" && request.auth.token.email_verified == true)
+      );
+    }
+
+    function isHeadCoordinator() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'head_coordinator';
+    }
+
+    function isCoordinator() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coordinator';
+    }
+
+    function isEvaluator() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'evaluator';
+    }
+
+    function isVolunteer() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'volunteer';
+    }
+
+    function isStudent() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student';
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.keys().hasAll(['uid', 'name', 'email', 'role']) &&
+               data.uid == userId &&
+               data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+               isValidEmail(data.email) &&
+               data.role in ["student", "volunteer", "coordinator", "head_coordinator", "evaluator", "super_admin"];
+      }
+
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == 'student' || isAdmin());
+      allow update: if (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data) && (isOwner(userId) ? request.resource.data.role == resource.data.role : true);
+      allow delete: if isAdmin();
+    }
+
+    match /events/{eventId} {
+      function isValidEvent(data) {
+        return data.keys().hasAll(['title', 'date', 'status']) &&
+               data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+               isValidDateString(data.date) &&
+               data.status in ["upcoming", "ongoing", "completed"];
+      }
+
+      allow read: if isAuthenticated();
+      allow create: if (isHeadCoordinator() || isAdmin()) && isValidEvent(request.resource.data);
+      allow update: if (isHeadCoordinator() || isCoordinator() || isAdmin()) && isValidEvent(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /registrations/{regId} {
+      function isValidRegistration(data) {
+        return data.keys().hasAll(['studentId', 'eventId', 'status', 'registeredAt']) &&
+               data.studentId is string &&
+               data.eventId is string &&
+               data.status in ["registered", "attended", "completed"] &&
+               isValidDateString(data.registeredAt);
+      }
+
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.studentId || isCoordinator() || isHeadCoordinator() || isEvaluator() || isVolunteer() || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.studentId && isValidRegistration(request.resource.data);
+      allow update: if (isCoordinator() || isHeadCoordinator() || isVolunteer() || isAdmin()) && isValidRegistration(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /tasks/{taskId} {
+      function isValidTask(data) {
+        return data.keys().hasAll(['eventId', 'title', 'status']) &&
+               data.eventId is string &&
+               data.title is string && data.title.size() > 0 &&
+               data.status in ["todo", "inprogress", "done", "pending", "completed"];
+      }
+
+      allow read: if isAuthenticated() && (request.auth.uid in resource.data.assignedTo || isCoordinator() || isHeadCoordinator() || isAdmin());
+      allow create: if (isCoordinator() || isHeadCoordinator() || isAdmin()) && isValidTask(request.resource.data);
+      allow update: if (isAuthenticated() && request.auth.uid in resource.data.assignedTo) ||
+                    ((isCoordinator() || isHeadCoordinator() || isAdmin()) && isValidTask(request.resource.data));
+      allow delete: if (isCoordinator() || isHeadCoordinator() || isAdmin());
+    }
+
+    match /jobs/{jobId} {
+      function isValidJob(data) {
+        return data.keys().hasAll(['title', 'company', 'institutionId']) &&
+               data.title is string && data.title.size() > 0 &&
+               data.company is string && data.company.size() > 0 &&
+               data.institutionId is string;
+      }
+
+      allow read: if isAuthenticated();
+      allow create: if (isHeadCoordinator() || isAdmin()) && isValidJob(request.resource.data);
+      allow update: if (isHeadCoordinator() || isAdmin()) && isValidJob(request.resource.data);
+      allow delete: if (isHeadCoordinator() || isAdmin());
+    }
+
+    match /notifications/{notifId} {
+      function isValidNotification(data) {
+        return data.keys().hasAll(['userId', 'message', 'type', 'read', 'createdAt']) &&
+               data.userId is string &&
+               data.message is string && data.message.size() > 0 &&
+               data.type in ["event", "job", "certificate", "task"] &&
+               data.read is bool &&
+               isValidDateString(data.createdAt);
+      }
+
+      allow read: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow create: if isAuthenticated(); // Allow system/others to create notifications
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    match /institutions/{instId} {
+      function isValidInstitution(data) {
+        return data.keys().hasAll(['name']) &&
+               data.name is string && data.name.size() > 0;
+      }
+
+      allow read: if isAuthenticated();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /broadcasts/{broadcastId} {
+      allow read: if isAuthenticated();
+      allow create: if (isHeadCoordinator() || isAdmin());
+      allow update: if (isHeadCoordinator() || isAdmin());
+      allow delete: if (isHeadCoordinator() || isAdmin());
+    }
+
+    match /announcements/{announcementId} {
+      allow read: if isAuthenticated();
+      allow create: if (isCoordinator() || isHeadCoordinator() || isAdmin());
+      allow update: if (isCoordinator() || isHeadCoordinator() || isAdmin());
+      allow delete: if (isCoordinator() || isHeadCoordinator() || isAdmin());
+    }
+
+    match /messages/{messageId} {
+      allow read: if isAuthenticated() && request.auth.uid in resource.data.participants;
+      allow create: if isAuthenticated() && request.auth.uid in request.resource.data.participants;
+      allow update: if isAuthenticated() && request.auth.uid in resource.data.participants;
+      allow delete: if false;
+    }
+
+    match /chat_messages/{msgId} {
+      allow read: if isAuthenticated(); // Should be more restrictive based on room/chat
+      allow create: if isAuthenticated();
+      allow update: if false;
+      allow delete: if false;
+    }
+  }
+}
